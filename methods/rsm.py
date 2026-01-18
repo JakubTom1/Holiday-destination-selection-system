@@ -134,16 +134,38 @@ def rsm(input_data: List[List[int]], lower_limits: List, upper_limits: List, is_
         # print('a1: ', A1)
         # print('data: ', data)
 
-        P = []
+        log_P = []
+
+        # Loop over reference sets (assuming i1 and j1 loops structure)
         for i1 in range(A0.shape[0]):
             for j1 in range(A1.shape[0]):
-                area = 1
-                for idx in range(1, A0.shape[1]):
-                    area *= np.abs(A0[i1, idx] - A1[j1, idx])
-                P.append(area)
 
-        P = np.array(P)
-        w = P / np.sum(P)
+                # Initialize log_area to 0 (equivalent to area=1 in multiplication)
+                log_area = 0.0
+
+                for idx in range(1, A0.shape[1]):
+                    # Calculate difference
+                    diff = np.abs(A0[i1, idx] - A1[j1, idx])
+
+                    # Safe log: avoid log(0) which gives -inf
+                    if diff < 1e-12:
+                        diff = 1e-12
+
+                    # Sum logs instead of multiplying values
+                    log_area += np.log(diff)
+
+                log_P.append(log_area)
+
+        # --- WEIGHT CALCULATION WITH LOG-SUM-EXP TRICK ---
+        log_P = np.array(log_P)
+
+        # Shift values by subtracting max to ensure exp() doesn't overflow
+        # The largest value becomes exp(0) = 1.0
+        max_log = np.max(log_P)
+        P_safe = np.exp(log_P - max_log)
+
+        # Normalize weights (sum will be safe now)
+        w = P_safe / np.sum(P_safe)
 
         f = []
         for i in range(data.shape[0]):
